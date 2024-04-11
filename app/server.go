@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 )
 
 func readUntilCRLF(byteStream *bufio.Reader) ([]byte, error) {
@@ -43,9 +44,18 @@ func main() {
 
 	reader := bufio.NewReader(conn)
 	data, err := readUntilCRLF(reader)
+	fmt.Println("Raw data:", string(data))
 	if err != nil {
 		fmt.Println("Error reading data from connection", err)
 	}
-	fmt.Println(data)
-	conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+	parts := strings.Split(string(data), " ")
+	command, path, _ := parts[0], parts[1], parts[2]
+	if command == "GET" {
+		if path == "/" {
+			conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+		} else {
+			conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+		}
+	}
+
 }
