@@ -2,6 +2,8 @@ package main
 
 import (
 	"bufio"
+	"bytes"
+	"flag"
 	"fmt"
 	"io"
 	"net"
@@ -13,7 +15,8 @@ import (
 func main() {
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
 	fmt.Println("Logs from your program will appear here!")
-
+	directory := flag.String("directory", "", "user specified absolute path for the directory to serve")
+	flag.Parse()
 	l, err := net.Listen("tcp", "0.0.0.0:4221")
 	if err != nil {
 		fmt.Println("Failed to bind to port 4221")
@@ -25,12 +28,12 @@ func main() {
 			fmt.Println("Error accepting connection: ", err.Error())
 			os.Exit(1)
 		}
-		go serve(conn)
+		go serve(conn, directory)
 	}
 
 }
 
-func serve(conn net.Conn) {
+func serve(conn net.Conn, directory *string) {
 	reader := bufio.NewReader(conn)
 	req, err := http.ReadRequest(reader)
 	if err != nil {
@@ -47,6 +50,33 @@ func serve(conn net.Conn) {
 				ProtoMinor: 1,
 			}
 			response.Write(conn)
+		} else if strings.HasPrefix(uri, "/files/") {
+			splitUri := strings.SplitAfterN(uri, "/files/", 2)
+			fileName := splitUri[1]
+			absolutePath := *directory + "/" + fileName
+			fileContent, err := os.ReadFile(absolutePath)
+			if err != nil {
+				response := &http.Response{
+					Status:     "404 Not Found",
+					StatusCode: 404,
+					ProtoMajor: 1,
+					ProtoMinor: 1,
+				}
+				response.Write(conn)
+			} else {
+				response := &http.Response{
+					Status:     "200 OK",
+					StatusCode: 200,
+					ProtoMajor: 1,
+					ProtoMinor: 1,
+					Header: http.Header{
+						"Content-Type": []string{"application/octet-stream"},
+					},
+					Body:          io.NopCloser(bytes.NewReader(fileContent)),
+					ContentLength: int64(len(fileContent)),
+				}
+				response.Write(conn)
+			}
 		} else if strings.HasPrefix(uri, "/user-agent") {
 			userAgent := req.Header.Get("User-Agent")
 			response := &http.Response{
