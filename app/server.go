@@ -3,28 +3,30 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"net"
+	"net/http"
 	"os"
 	"strings"
 )
 
-func readUntilCRLF(byteStream *bufio.Reader) ([]byte, error) {
-	readBytes := []byte{}
+// func readUntilCRLF(byteStream *bufio.Reader) ([]byte, error) {
+// 	readBytes := []byte{}
 
-	for {
-		b, err := byteStream.ReadBytes('\n')
-		if err != nil {
-			return nil, err
-		}
+// 	for {
+// 		b, err := byteStream.ReadBytes('\n')
+// 		if err != nil {
+// 			return nil, err
+// 		}
 
-		readBytes = append(readBytes, b...)
-		if len(readBytes) >= 2 && readBytes[len(readBytes)-2] == '\r' {
-			break
-		}
-	}
+// 		readBytes = append(readBytes, b...)
+// 		if len(readBytes) >= 2 && readBytes[len(readBytes)-2] == '\r' {
+// 			break
+// 		}
+// 	}
 
-	return readBytes[:len(readBytes)-2], nil
-}
+// 	return readBytes[:len(readBytes)-2], nil
+// }
 
 func main() {
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -35,27 +37,57 @@ func main() {
 		fmt.Println("Failed to bind to port 4221")
 		os.Exit(1)
 	}
-
-	conn, err := l.Accept()
-	if err != nil {
-		fmt.Println("Error accepting connection: ", err.Error())
-		os.Exit(1)
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			fmt.Println("Error accepting connection: ", err.Error())
+			os.Exit(1)
+		}
+		serve(conn)
 	}
 
+}
+
+func serve(conn net.Conn) {
 	reader := bufio.NewReader(conn)
-	data, err := readUntilCRLF(reader)
-	fmt.Println("Raw data:", string(data))
+	req, err := http.ReadRequest(reader)
 	if err != nil {
-		fmt.Println("Error reading data from connection", err)
+		fmt.Println("Error reading request:", err)
 	}
-	parts := strings.Split(string(data), " ")
-	command, path, _ := parts[0], parts[1], parts[2]
-	if command == "GET" {
-		if path == "/" {
-			conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+	if req.Method == "GET" {
+		uri := req.RequestURI
+		fmt.Println("Request URI is:", uri)
+		if uri == "/" {
+			response := &http.Response{
+				Status:     "200 OK",
+				StatusCode: 200,
+				ProtoMajor: 1,
+				ProtoMinor: 1,
+			}
+			response.Write(conn)
+		} else if strings.HasPrefix(uri, "/echo/") {
+			splitUri := strings.SplitAfterN(uri, "/echo/", 2)
+			toEcho := splitUri[1]
+			response := &http.Response{
+				Status:     "200 OK",
+				StatusCode: 200,
+				ProtoMajor: 1,
+				ProtoMinor: 1,
+				Header: http.Header{
+					"Content-Type": []string{"text/plain"},
+				},
+				Body:          io.NopCloser(strings.NewReader(toEcho)),
+				ContentLength: int64(len(toEcho)),
+			}
+			response.Write(conn)
 		} else {
-			conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+			response := &http.Response{
+				Status:     "404 Not Found",
+				StatusCode: 404,
+				ProtoMajor: 1,
+				ProtoMinor: 1,
+			}
+			response.Write(conn)
 		}
 	}
-
 }
