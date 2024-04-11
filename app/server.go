@@ -10,24 +10,6 @@ import (
 	"strings"
 )
 
-// func readUntilCRLF(byteStream *bufio.Reader) ([]byte, error) {
-// 	readBytes := []byte{}
-
-// 	for {
-// 		b, err := byteStream.ReadBytes('\n')
-// 		if err != nil {
-// 			return nil, err
-// 		}
-
-// 		readBytes = append(readBytes, b...)
-// 		if len(readBytes) >= 2 && readBytes[len(readBytes)-2] == '\r' {
-// 			break
-// 		}
-// 	}
-
-// 	return readBytes[:len(readBytes)-2], nil
-// }
-
 func main() {
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
 	fmt.Println("Logs from your program will appear here!")
@@ -43,7 +25,7 @@ func main() {
 			fmt.Println("Error accepting connection: ", err.Error())
 			os.Exit(1)
 		}
-		serve(conn)
+		go serve(conn)
 	}
 
 }
