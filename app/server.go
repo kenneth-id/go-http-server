@@ -40,73 +40,57 @@ func serve(conn net.Conn, directory *string) {
 		fmt.Println("Error reading request:", err)
 	}
 	if req.Method == "GET" {
-		uri := req.RequestURI
-		fmt.Println("Request URI is:", uri)
-		if uri == "/" {
+		handleGet(req, conn, directory)
+	} else if req.Method == "POST" {
+		handlePost(req, conn, directory)
+	}
+}
+
+func handlePost(req *http.Request, conn net.Conn, directory *string) {
+	uri := req.RequestURI
+	if strings.HasPrefix(uri, "/files/") {
+		splitUri := strings.SplitAfterN(uri, "/files/", 2)
+		fileName := splitUri[1]
+		absolutePath := *directory + "/" + fileName
+		fileContent, _ := io.ReadAll(req.Body)
+		err := os.WriteFile(absolutePath, fileContent, 0644)
+		if err != nil {
 			response := &http.Response{
-				Status:     "200 OK",
-				StatusCode: 200,
+				Status:     "404 Conflict",
+				StatusCode: 409,
 				ProtoMajor: 1,
 				ProtoMinor: 1,
-			}
-			response.Write(conn)
-		} else if strings.HasPrefix(uri, "/files/") {
-			splitUri := strings.SplitAfterN(uri, "/files/", 2)
-			fileName := splitUri[1]
-			absolutePath := *directory + "/" + fileName
-			fileContent, err := os.ReadFile(absolutePath)
-			if err != nil {
-				response := &http.Response{
-					Status:     "404 Not Found",
-					StatusCode: 404,
-					ProtoMajor: 1,
-					ProtoMinor: 1,
-				}
-				response.Write(conn)
-			} else {
-				response := &http.Response{
-					Status:     "200 OK",
-					StatusCode: 200,
-					ProtoMajor: 1,
-					ProtoMinor: 1,
-					Header: http.Header{
-						"Content-Type": []string{"application/octet-stream"},
-					},
-					Body:          io.NopCloser(bytes.NewReader(fileContent)),
-					ContentLength: int64(len(fileContent)),
-				}
-				response.Write(conn)
-			}
-		} else if strings.HasPrefix(uri, "/user-agent") {
-			userAgent := req.Header.Get("User-Agent")
-			response := &http.Response{
-				Status:     "200 OK",
-				StatusCode: 200,
-				ProtoMajor: 1,
-				ProtoMinor: 1,
-				Header: http.Header{
-					"Content-Type": []string{"text/plain"},
-				},
-				Body:          io.NopCloser(strings.NewReader(userAgent)),
-				ContentLength: int64(len(userAgent)),
-			}
-			response.Write(conn)
-		} else if strings.HasPrefix(uri, "/echo/") {
-			splitUri := strings.SplitAfterN(uri, "/echo/", 2)
-			toEcho := splitUri[1]
-			response := &http.Response{
-				Status:     "200 OK",
-				StatusCode: 200,
-				ProtoMajor: 1,
-				ProtoMinor: 1,
-				Header: http.Header{
-					"Content-Type": []string{"text/plain"},
-				},
-				Body:          io.NopCloser(strings.NewReader(toEcho)),
-				ContentLength: int64(len(toEcho)),
 			}
 			response.Write(conn)
 		} else {
+			response := &http.Response{
+				Status:     "201 OK",
+				StatusCode: 201,
+				ProtoMajor: 1,
+				ProtoMinor: 1,
+			}
+			response.Write(conn)
+		}
+	}
+}
+
+func handleGet(req *http.Request, conn net.Conn, directory *string) {
+	uri := req.RequestURI
+	fmt.Println("Request URI is:", uri)
+	if uri == "/" {
+		response := &http.Response{
+			Status:     "200 OK",
+			StatusCode: 200,
+			ProtoMajor: 1,
+			ProtoMinor: 1,
+		}
+		response.Write(conn)
+	} else if strings.HasPrefix(uri, "/files/") {
+		splitUri := strings.SplitAfterN(uri, "/files/", 2)
+		fileName := splitUri[1]
+		absolutePath := *directory + "/" + fileName
+		fileContent, err := os.ReadFile(absolutePath)
+		if err != nil {
 			response := &http.Response{
 				Status:     "404 Not Found",
 				StatusCode: 404,
@@ -114,6 +98,56 @@ func serve(conn net.Conn, directory *string) {
 				ProtoMinor: 1,
 			}
 			response.Write(conn)
+		} else {
+			response := &http.Response{
+				Status:     "200 OK",
+				StatusCode: 200,
+				ProtoMajor: 1,
+				ProtoMinor: 1,
+				Header: http.Header{
+					"Content-Type": []string{"application/octet-stream"},
+				},
+				Body:          io.NopCloser(bytes.NewReader(fileContent)),
+				ContentLength: int64(len(fileContent)),
+			}
+			response.Write(conn)
 		}
+	} else if strings.HasPrefix(uri, "/user-agent") {
+		userAgent := req.Header.Get("User-Agent")
+		response := &http.Response{
+			Status:     "200 OK",
+			StatusCode: 200,
+			ProtoMajor: 1,
+			ProtoMinor: 1,
+			Header: http.Header{
+				"Content-Type": []string{"text/plain"},
+			},
+			Body:          io.NopCloser(strings.NewReader(userAgent)),
+			ContentLength: int64(len(userAgent)),
+		}
+		response.Write(conn)
+	} else if strings.HasPrefix(uri, "/echo/") {
+		splitUri := strings.SplitAfterN(uri, "/echo/", 2)
+		toEcho := splitUri[1]
+		response := &http.Response{
+			Status:     "200 OK",
+			StatusCode: 200,
+			ProtoMajor: 1,
+			ProtoMinor: 1,
+			Header: http.Header{
+				"Content-Type": []string{"text/plain"},
+			},
+			Body:          io.NopCloser(strings.NewReader(toEcho)),
+			ContentLength: int64(len(toEcho)),
+		}
+		response.Write(conn)
+	} else {
+		response := &http.Response{
+			Status:     "404 Not Found",
+			StatusCode: 404,
+			ProtoMajor: 1,
+			ProtoMinor: 1,
+		}
+		response.Write(conn)
 	}
 }
