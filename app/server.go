@@ -65,6 +65,20 @@ func serve(conn net.Conn) {
 				ProtoMinor: 1,
 			}
 			response.Write(conn)
+		} else if strings.HasPrefix(uri, "/user-agent") {
+			userAgent := req.Header.Get("User-Agent")
+			response := &http.Response{
+				Status:     "200 OK",
+				StatusCode: 200,
+				ProtoMajor: 1,
+				ProtoMinor: 1,
+				Header: http.Header{
+					"Content-Type": []string{"text/plain"},
+				},
+				Body:          io.NopCloser(strings.NewReader(userAgent)),
+				ContentLength: int64(len(userAgent)),
+			}
+			response.Write(conn)
 		} else if strings.HasPrefix(uri, "/echo/") {
 			splitUri := strings.SplitAfterN(uri, "/echo/", 2)
 			toEcho := splitUri[1]
